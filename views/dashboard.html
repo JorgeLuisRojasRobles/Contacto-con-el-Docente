@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Libros - Autonomo 2</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #ecf0f1; padding: 30px; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        h2 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; border: 1px solid #ddd; text-align: left; }
+        th { background-color: #3498db; color: white; }
+        tr:hover { background-color: #f5f5f5; }
+        .logout { float: right; color: #e74c3c; text-decoration: none; font-weight: bold; }
+        .logout:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="logout">Cerrar Sesión</a>
+        <h2>📚 Mi Biblioteca - UIDE</h2>
+        
+        <div style="background: #e8f4f8; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <h3 style="margin-top: 0; color: #2980b9;">➕ Agregar Nuevo Libro</h3>
+            <form id="form-agregar-libro" style="display: flex; gap: 10px;">
+                <input type="text" id="nuevo-titulo" placeholder="Título del libro" required style="flex: 1; padding: 10px; border: 1px solid #bdc3c7; border-radius: 4px;">
+                <input type="text" id="nuevo-autor" placeholder="Autor" required style="flex: 1; padding: 10px; border: 1px solid #bdc3c7; border-radius: 4px;">
+                <button type="submit" style="padding: 10px 20px; background-color: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Guardar Libro</button>
+            </form>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Título</th>
+                    <th>Autor</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody id="tabla-libros">
+                </tbody>
+        </table>
+    </div>
+
+    <script>
+        // 1. Cargar libros al entrar
+        function cargarLibros() {
+            fetch('/books')
+                .then(response => response.json())
+                .then(data => {
+                    const tabla = document.getElementById('tabla-libros');
+                    if (!data || data.length === 0) {
+                        tabla.innerHTML = "<tr><td colspan='4' style='text-align:center;'>No hay libros en el sistema.</td></tr>";
+                        return;
+                    }
+                    tabla.innerHTML = ''; // Limpiamos la tabla
+                    data.forEach(book => {
+                        tabla.innerHTML += `<tr>
+                            <td>${book.id}</td>
+                            <td>${book.title}</td>
+                            <td>${book.author}</td>
+                            <td>${book.status || 'Disponible'}</td>
+                        </tr>`;
+                    });
+                })
+                .catch(error => console.error('Error cargando libros:', error));
+        }
+
+        // Llamamos a la función al abrir la página
+        cargarLibros();
+
+        // 2. Lógica del botón Guardar (¡Esta es la que envía el dato!)
+        document.getElementById('form-agregar-libro').addEventListener('submit', function(e) {
+            e.preventDefault(); 
+            
+            const titulo = document.getElementById('nuevo-titulo').value;
+            const autor = document.getElementById('nuevo-autor').value;
+
+            fetch('/books/manual', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: titulo, author: autor })
+            })
+            .then(response => {
+                if (response.ok) {
+                    // Limpiamos las cajas de texto
+                    document.getElementById('nuevo-titulo').value = '';
+                    document.getElementById('nuevo-autor').value = '';
+                    // Volveamos a cargar la tabla para ver el libro nuevo
+                    cargarLibros(); 
+                } else {
+                    alert("Error al guardar el libro");
+                }
+            })
+            .catch(error => console.error('Error de red:', error));
+        });
+    </script>
+</body>
+</html>
