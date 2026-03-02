@@ -3,58 +3,67 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Biblioteca UIDE</title>
+    <title>Acceso - E-Commerce Jorge Rojas</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #ecf0f1; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
         .card { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 320px; text-align: center; }
-        h2 { color: #2c3e50; margin-bottom: 20px; }
+        h2 { color: #2c3e50; margin-bottom: 20px; font-size: 24px; }
         input { width: 90%; padding: 12px; margin: 10px 0; border: 1px solid #bdc3c7; border-radius: 5px; font-size: 14px; }
         button { width: 100%; padding: 12px; background-color: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 15px; margin-top: 15px; transition: 0.3s; }
         button:hover { background-color: #2980b9; }
+        .btn-visitante { background-color: #95a5a6; margin-top: 10px; }
+        .btn-visitante:hover { background-color: #7f8c8d; }
         .toggle { margin-top: 20px; font-size: 0.9em; color: #7f8c8d; cursor: pointer; text-decoration: underline; }
         .toggle:hover { color: #2c3e50; }
         .hidden { display: none; }
+        .info-creditos { font-size: 0.85em; color: #7f8c8d; margin-top: 25px; font-weight: bold; }
     </style>
 </head>
 <body>
     <div class="card">
-        <h2>📚 Biblioteca UIDE</h2>
+        <h2>🛒 E-Commerce de Libros</h2>
 
         <div id="login-section">
             <h3 style="color: #34495e;">Iniciar Sesión</h3>
             <form action="/login" method="POST">
                 <input type="text" name="username" placeholder="Usuario" required>
                 <input type="password" name="password" placeholder="Contraseña" required>
-                <button type="submit">Ingresar</button>
+                <button type="submit">Ingresar a la Tienda</button>
             </form>
-            <p class="toggle" onclick="toggleForms()">¿No tienes cuenta? Regístrate aquí</p>
+
+            <form action="/login" method="POST">
+                <input type="hidden" name="username" value="visitante">
+                <input type="hidden" name="password" value="1234">
+                <button type="submit" class="btn-visitante">Explorar como Visitante</button>
+            </form>
+
+            <p class="toggle" onclick="toggleForms()">¿No eres cliente? Regístrate aquí</p>
+            <p class="info-creditos">E-Commerce de Libros Jorge Rojas</p>
         </div>
 
         <div id="register-section" class="hidden">
-            <h3 style="color: #27ae60;">Crear Usuario Nuevo</h3>
+            <h3 style="color: #27ae60;">Nuevo Cliente</h3>
             <form id="form-register">
                 <input type="text" id="reg-user" placeholder="Crea tu Usuario" required>
                 <input type="password" id="reg-pass" placeholder="Crea tu Contraseña" required>
-                <button type="submit" style="background-color: #27ae60;">Registrarse</button>
+                <button type="submit" style="background-color: #27ae60;">Crear Cuenta</button>
             </form>
             <p class="toggle" onclick="toggleForms()">¿Ya tienes cuenta? Inicia Sesión</p>
+            <p class="info-creditos">E-Commerce de Libros Jorge Rojas</p>
         </div>
     </div>
 
     <script>
-        // Implemento una función para alternar dinámicamente la visibilidad de los formularios de autenticación y registro en el DOM sin recargar la página.
         function toggleForms() {
             document.getElementById('login-section').classList.toggle('hidden');
             document.getElementById('register-section').classList.toggle('hidden');
         }
 
-        // Capturo el evento de envío del formulario de registro para procesarlo de forma asíncrona hacia mi API REST en Go.
         document.getElementById('form-register').addEventListener('submit', function(e) {
             e.preventDefault();
             const user = document.getElementById('reg-user').value;
             const pass = document.getElementById('reg-pass').value;
 
-            // Construyo el payload en formato estandarizado JSON para cumplir con los requisitos de serialización de la Unidad 4.
             fetch('/api/users/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -62,12 +71,10 @@
             })
             .then(res => res.json())
             .then(data => {
-                // Evalúo la respuesta de la API. Si es exitosa, notifico al cliente y restauro la vista principal de acceso.
                 if(data.message) {
                     alert("¡Éxito! " + data.message + ". Ahora puedes iniciar sesión.");
                     toggleForms(); 
                 } else {
-                    // Manejo los errores de negocio devueltos por el servidor (como nombres duplicados) dándole feedback inmediato al usuario.
                     alert("Error: " + data.error);
                 }
             })

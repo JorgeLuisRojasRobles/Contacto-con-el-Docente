@@ -12,16 +12,24 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// Implemento un mapa en memoria para simular una base de datos de usuarios de forma ágil para este proyecto.
 var usersDB = map[string]string{
 	"cliente": "1234",
 }
 
 func main() {
-	// Inicializo las dependencias aplicando el patrón de inyección de dependencias y separando responsabilidades.
 	repo := repository.NewInMemoryBookRepo()
 	svc := service.NewLibraryService(repo)
 	bookHandler := handler.NewBookHandler(svc)
+
+	// ==========================================
+	// PRECARGA DE DATOS (SEEDING) - LIBROS MUNDIALES
+	// ==========================================
+	svc.AddManualBook("Cien años de soledad", "Gabriel García Márquez")
+	svc.AddManualBook("Don Quijote de la Mancha", "Miguel de Cervantes")
+	svc.AddManualBook("El Principito", "Antoine de Saint-Exupéry")
+	svc.AddManualBook("1984", "George Orwell")
+	svc.AddManualBook("Harry Potter y la piedra filosofal", "J.K. Rowling")
+	// ==========================================
 
 	e := echo.New()
 
@@ -33,14 +41,21 @@ func main() {
 		user := c.FormValue("username")
 		pass := c.FormValue("password")
 
-		// Valido credenciales para el administrador principal del sistema.
+		// 1. Rol: Administrador (Acceso total)
 		if user == "jorge" && pass == "1234" {
-			c.SetCookie(&http.Cookie{Name: "role", Value: "jorge", Path: "/"})
-			c.SetCookie(&http.Cookie{Name: "username", Value: user, Path: "/"}) // Guardo el nombre en la cookie para auditoría de acciones.
+			c.SetCookie(&http.Cookie{Name: "role", Value: "admin", Path: "/"})
+			c.SetCookie(&http.Cookie{Name: "username", Value: user, Path: "/"})
 			return c.Redirect(302, "/dashboard")
 		}
 
-		// Valido credenciales contra la base de datos en memoria para los clientes regulares.
+		// 2. Rol: Visitante (Solo lectura)
+		if user == "visitante" && pass == "1234" {
+			c.SetCookie(&http.Cookie{Name: "role", Value: "visitante", Path: "/"})
+			c.SetCookie(&http.Cookie{Name: "username", Value: user, Path: "/"})
+			return c.Redirect(302, "/dashboard")
+		}
+
+		// 3. Rol: Cliente (Puede alquilar y comprar)
 		if storedPass, exists := usersDB[user]; exists && storedPass == pass {
 			c.SetCookie(&http.Cookie{Name: "role", Value: "cliente", Path: "/"})
 			c.SetCookie(&http.Cookie{Name: "username", Value: user, Path: "/"})
@@ -53,8 +68,6 @@ func main() {
 	e.GET("/dashboard", func(c echo.Context) error {
 		return c.File("views/dashboard.html")
 	})
-
-	// Configuración de los Servicios Web para cumplir con los requerimientos de la Unidad 4.
 
 	e.GET("/api/books", func(c echo.Context) error {
 		books := svc.GetAllBooks()
@@ -84,7 +97,6 @@ func main() {
 		return c.JSON(200, optBook.MustGet())
 	})
 
-	// Servicio para alquilar un libro. Extraigo la cookie del usuario para vincular el préstamo a su identidad.
 	e.POST("/api/transactions/borrow/:id", func(c echo.Context) error {
 		id := c.Param("id")
 		cookie, _ := c.Cookie("username")
@@ -94,7 +106,6 @@ func main() {
 		return c.JSON(200, map[string]string{"message": "Libro prestado exitosamente"})
 	})
 
-	// Servicio para devolver un libro. Envío el usuario logueado al servicio para que valide si tiene los permisos adecuados.
 	e.POST("/api/transactions/return/:id", func(c echo.Context) error {
 		id := c.Param("id")
 		cookie, _ := c.Cookie("username")
@@ -116,7 +127,6 @@ func main() {
 		return c.JSON(200, map[string]string{"status": "online", "version": "1.0.0", "author": "Jorge Rojas"})
 	})
 
-	// Implemento un endpoint adicional para el registro de nuevos usuarios en tiempo real.
 	e.POST("/api/users/register", func(c echo.Context) error {
 		var input struct {
 			Username string `json:"username"`
@@ -126,16 +136,15 @@ func main() {
 			return c.JSON(400, map[string]string{"error": "Datos inválidos"})
 		}
 
-		// Valido la disponibilidad del nombre de usuario antes de procesar el registro.
-		if _, exists := usersDB[input.Username]; exists || input.Username == "jorge" {
+		if _, exists := usersDB[input.Username]; exists || input.Username == "jorge" || input.Username == "visitante" {
 			return c.JSON(400, map[string]string{"error": "El nombre ya está en uso"})
 		}
 
 		usersDB[input.Username] = input.Password
-		fmt.Printf("Registro de sistema: Nuevo usuario incorporado (%s)\n", input.Username)
-		return c.JSON(200, map[string]string{"message": "Usuario registrado exitosamente"})
+		fmt.Printf("Registro de E-Commerce: Nuevo cliente incorporado (%s)\n", input.Username)
+		return c.JSON(200, map[string]string{"message": "Cliente registrado exitosamente"})
 	})
 
-	fmt.Println("Iniciando el servidor del Proyecto Integrador en el puerto 8080...")
+	fmt.Println("🛒 Iniciando el servidor del E-Commerce de Libros en el puerto 8080...")
 	e.Logger.Fatal(e.Start(":8080"))
 }

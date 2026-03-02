@@ -1,10 +1,9 @@
-// Autonomo 2 Jorge Luis Rojas Robles - 2026
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Libros - Proyecto Final</title>
+    <title>E-Commerce de Libros Jorge Rojas</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #ecf0f1; padding: 30px; }
         .container { max-width: 900px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
@@ -20,14 +19,14 @@
 <body>
     <div class="container">
         <a href="/" class="logout">Cerrar Sesión</a>
-        <h2>📚 Mi Biblioteca - UIDE (Proyecto Final)</h2>
+        <h2>🛒 E-Commerce de Libros Jorge Rojas</h2>
         
         <div id="seccion-agregar" style="background: #e8f4f8; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-            <h3 style="margin-top: 0; color: #2980b9;">➕ Agregar Nuevo Libro</h3>
+            <h3 style="margin-top: 0; color: #2980b9;">➕ Agregar Libro al Catálogo</h3>
             <form id="form-agregar-libro" style="display: flex; gap: 10px;">
                 <input type="text" id="nuevo-titulo" placeholder="Título del libro" required style="flex: 1; padding: 10px; border: 1px solid #bdc3c7; border-radius: 4px;">
                 <input type="text" id="nuevo-autor" placeholder="Autor" required style="flex: 1; padding: 10px; border: 1px solid #bdc3c7; border-radius: 4px;">
-                <button type="submit" style="padding: 10px 20px; background-color: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Guardar Libro</button>
+                <button type="submit" style="padding: 10px 20px; background-color: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Publicar Libro</button>
             </form>
         </div>
 
@@ -37,8 +36,8 @@
                     <th>ID</th>
                     <th>Título</th>
                     <th>Autor</th>
-                    <th>Estado</th>
-                    <th>Acciones</th> 
+                    <th>Estado de Stock</th>
+                    <th>Opciones de Tienda</th> 
                 </tr>
             </thead>
             <tbody id="tabla-libros"></tbody>
@@ -55,7 +54,7 @@
         const userRole = getCookie("role");
         const currentUser = getCookie("username"); 
 
-        if (userRole === "cliente") {
+        if (userRole === "cliente" || userRole === "visitante") {
             document.getElementById('seccion-agregar').style.display = 'none';
         }
 
@@ -65,32 +64,36 @@
                 .then(data => {
                     const tabla = document.getElementById('tabla-libros');
                     if (!data || data.length === 0) {
-                        tabla.innerHTML = "<tr><td colspan='5' style='text-align:center;'>No hay libros en el sistema.</td></tr>";
+                        tabla.innerHTML = "<tr><td colspan='5' style='text-align:center;'>El catálogo está vacío.</td></tr>";
                         return;
                     }
                     tabla.innerHTML = ''; 
                     data.forEach(book => {
                         let estadoHtml = '';
-                        if (book.Status === 'Disponible') estadoHtml = `<span style="color: green; font-weight: bold;">Disponible</span>`;
-                        else if (book.Status === 'Prestado') estadoHtml = `<span style="color: red; font-weight: bold;">Prestado</span>`;
-                        else if (book.Status === 'Vendido') estadoHtml = `<span style="color: purple; font-weight: bold;">Vendido</span>`;
+                        if (book.Status === 'Disponible') estadoHtml = `<span style="color: green; font-weight: bold;">En Stock</span>`;
+                        else if (book.Status === 'Prestado') estadoHtml = `<span style="color: red; font-weight: bold;">Alquilado</span>`;
+                        else if (book.Status === 'Vendido') estadoHtml = `<span style="color: purple; font-weight: bold;">Agotado (Vendido)</span>`;
 
                         let botonAccion = '';
-                        if (book.Status === 'Disponible') {
-                            botonAccion += `<button onclick="prestarLibro('${book.ID}')" style="background:#f39c12; color:white; border:none; padding:5px 10px; border-radius:3px; cursor:pointer; margin-right:5px;">Alquilar</button>`;
-                            botonAccion += `<button onclick="comprarLibro('${book.ID}')" style="background:#8e44ad; color:white; border:none; padding:5px 10px; border-radius:3px; cursor:pointer;">Comprar</button>`;
-                        } else if (book.Status === 'Prestado') {
-                            // 🔒 REGLAS DE PRIVACIDAD APLICADAS
-                            if (currentUser === book.BorrowedBy) {
-                                botonAccion += `<button onclick="devolverLibro('${book.ID}')" style="background:#3498db; color:white; border:none; padding:5px 10px; border-radius:3px; cursor:pointer;">Devolver</button>`;
-                            } else if (currentUser === 'jorge') {
-                                botonAccion += `<button onclick="devolverLibro('${book.ID}')" style="background:#3498db; color:white; border:none; padding:5px 10px; border-radius:3px; cursor:pointer; margin-right:5px;">Devolver</button>`;
-                                botonAccion += `<span style="color: #7f8c8d; font-size: 0.9em;">(El libro lo tiene: <b>${book.BorrowedBy}</b>)</span>`;
-                            } else {
-                                botonAccion += `<span style="color: gray; font-style: italic;">No disponible</span>`;
+                        
+                        if (userRole === "visitante") {
+                            botonAccion = `<span style="color: #7f8c8d; font-style: italic;">Regístrate para comprar</span>`;
+                        } else {
+                            if (book.Status === 'Disponible') {
+                                botonAccion += `<button onclick="prestarLibro('${book.ID}')" style="background:#f39c12; color:white; border:none; padding:5px 10px; border-radius:3px; cursor:pointer; margin-right:5px;">Alquilar (Digital)</button>`;
+                                botonAccion += `<button onclick="comprarLibro('${book.ID}')" style="background:#8e44ad; color:white; border:none; padding:5px 10px; border-radius:3px; cursor:pointer;">Comprar Físico</button>`;
+                            } else if (book.Status === 'Prestado') {
+                                if (currentUser === book.BorrowedBy) {
+                                    botonAccion += `<button onclick="devolverLibro('${book.ID}')" style="background:#3498db; color:white; border:none; padding:5px 10px; border-radius:3px; cursor:pointer;">Terminar Alquiler</button>`;
+                                } else if (userRole === 'admin') {
+                                    botonAccion += `<button onclick="devolverLibro('${book.ID}')" style="background:#3498db; color:white; border:none; padding:5px 10px; border-radius:3px; cursor:pointer; margin-right:5px;">Forzar Devolución</button>`;
+                                    botonAccion += `<span style="color: #7f8c8d; font-size: 0.9em;">(Cliente: <b>${book.BorrowedBy}</b>)</span>`;
+                                } else {
+                                    botonAccion += `<span style="color: gray; font-style: italic;">No disponible</span>`;
+                                }
+                            } else if (book.Status === 'Vendido') {
+                                botonAccion += `<span style="color: gray; font-style: italic;">Sin acciones</span>`;
                             }
-                        } else if (book.Status === 'Vendido') {
-                            botonAccion += `<span style="color: gray; font-style: italic;">Sin acciones</span>`;
                         }
 
                         tabla.innerHTML += `<tr>
@@ -127,7 +130,7 @@
 
         function prestarLibro(id) {
             fetch(`/api/transactions/borrow/${id}`, { method: 'POST' }).then(res => {
-                if(res.ok) cargarLibros(); else alert("Error al alquilar");
+                if(res.ok) cargarLibros(); else alert("Error al procesar el alquiler");
             });
         }
 
@@ -142,9 +145,9 @@
         }
 
         function comprarLibro(id) {
-            if(confirm("¿Estás seguro que deseas comprar este libro?")) {
+            if(confirm("Confirmar compra: El producto pasará a estado Agotado y no podrá alquilarse más.")) {
                 fetch(`/api/transactions/buy/${id}`, { method: 'POST' }).then(res => {
-                    if(res.ok) cargarLibros(); else alert("Error al comprar");
+                    if(res.ok) cargarLibros(); else alert("Error al procesar el pago");
                 });
             }
         }
