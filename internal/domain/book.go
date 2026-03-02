@@ -1,4 +1,4 @@
-// Autonomo 2 Jorge Luis Rojas Robles - 2026
+// Contacto con el Docente Jorge Luis Rojas Robles - 2026
 package domain
 
 import (
@@ -43,14 +43,15 @@ type Book struct {
 	PageCount   int
 	FilePath    string
 	Format      string
-	Status      string // 🟢 ¡NUEVO CAMPO PARA SABER SI ESTÁ PRESTADO!
+	Status      string
+	BorrowedBy  string // Agregué este campo para llevar el control exacto de qué usuario alquiló el libro.
 }
 
 func GenerateID() string {
 	return fmt.Sprintf("%d", time.Now().UnixNano())
 }
 
-// Constructor Seguro
+// Implemento un constructor seguro para validar las reglas de negocio antes de instanciar un libro en memoria.
 func NewBook(id string, title string, author string, pages int, path string) mo.Result[Book] {
 	if id == "" {
 		return mo.Err[Book](NewDomainError("ID no puede estar vacío", 400))
@@ -71,11 +72,12 @@ func NewBook(id string, title string, author string, pages int, path string) mo.
 		PageCount:   pages,
 		FilePath:    path,
 		Format:      "EPUB",
-		Status:      "Disponible", // 🟢 Por defecto, todo libro nuevo está disponible
+		Status:      "Disponible",
+		BorrowedBy:  "", // Lo inicializo vacío ya que un libro recién ingresado al sistema no tiene un arrendatario asignado.
 	})
 }
 
-// Setters Funcionales (Unidad 3)
+// Aplico el concepto de Setters Funcionales (Unidad 3) para proteger la encapsulación y garantizar la inmutabilidad de la estructura.
 func (b Book) WithTitle(newTitle string) Book {
 	b.Title = newTitle
 	return b
@@ -86,8 +88,14 @@ func (b Book) WithDescription(desc string) Book {
 	return b
 }
 
-// Para prestar o devolver el libro de forma inmutable
+// Este método me permite gestionar las transacciones (cambiar de Disponible a Prestado o Vendido) devolviendo una copia segura del objeto.
 func (b Book) WithStatus(newStatus string) Book {
 	b.Status = newStatus
+	return b
+}
+
+// Desarrollo este método para asociar la identidad del cliente con el libro prestado en el momento de la transacción.
+func (b Book) WithBorrowedBy(user string) Book {
+	b.BorrowedBy = user
 	return b
 }

@@ -1,4 +1,4 @@
-// Autonomo 2 Jorge Luis Rojas Robles - 2026
+// Contacto con el Docente Jorge Luis Rojas Robles - 2026
 
 package service
 
@@ -11,6 +11,8 @@ import (
 	"github.com/samber/mo"
 )
 
+// Defino el servicio principal de la biblioteca. Utilizo inyección de dependencias
+// recibiendo la interfaz del repositorio para mantener el dominio de negocio desacoplado de la persistencia.
 type LibraryService struct {
 	repo domain.BookRepository
 }
@@ -19,22 +21,17 @@ func NewLibraryService(repo domain.BookRepository) *LibraryService {
 	return &LibraryService{repo: repo}
 }
 
+// Implemento la importación masiva de libros utilizando los principios de programación funcional.
 func (s *LibraryService) ImportBooks(paths []string) []domain.Book {
-
-	// 1. Pipeline de Transformación
+	// Fase 1: Mapeo cada ruta de archivo a un Result de un libro, delegando la extracción de metadatos al adaptador.
 	results := lo.Map(paths, func(path string, _ int) mo.Result[domain.Book] {
-
-		// A. Ejecutamos el Parser
 		resMeta := epub.ParseMetadata(path)
-
-		// B. Si falló, devolvemos el error inmediatamente
 		if resMeta.IsError() {
 			return mo.Err[domain.Book](resMeta.Error())
 		}
-
-		// C. Si tuvo éxito, extraemos la data y creamos el Libro
 		meta := resMeta.MustGet()
 
+		// Instancio el libro a través del constructor seguro del dominio.
 		return domain.NewBook(
 			domain.GenerateID(),
 			meta.Title,
@@ -44,14 +41,13 @@ func (s *LibraryService) ImportBooks(paths []string) []domain.Book {
 		)
 	})
 
-	// 2. Filtrado de Errores
+	// Fase 2: Filtro los resultados, descartando silenciosamente los archivos que generaron error durante el parseo de metadatos.
 	validBooks := lo.FilterMap(results, func(res mo.Result[domain.Book], _ int) (domain.Book, bool) {
-
 		val, err := res.Get()
 		return val, err == nil
 	})
 
-	// 3. Persistencia (Usando la Interfaz)
+	// Fase 3: Persisto los libros válidos en el repositorio.
 	lo.ForEach(validBooks, func(book domain.Book, _ int) {
 		s.repo.Save(book)
 	})
@@ -63,9 +59,8 @@ func (s *LibraryService) GetAllBooks() []domain.Book {
 	return s.repo.ListAll()
 }
 
-// Agregar un libro manualmente desde la interfaz web
+// Desarrollo este método para permitir el registro manual de libros desde la interfaz web.
 func (s *LibraryService) AddManualBook(title, author string) domain.Book {
-
 	resBook := domain.NewBook(
 		domain.GenerateID(),
 		title,
@@ -73,42 +68,38 @@ func (s *LibraryService) AddManualBook(title, author string) domain.Book {
 		100,
 		"Registro Manual",
 	)
-
 	newBook := resBook.MustGet()
-
 	s.repo.Save(newBook)
-
 	return newBook
 }
 
-func (s *LibraryService) BorrowBook(id string) error {
-	// 1. Buscamos el libro en la base de datos
+// Gestiono la transacción de alquiler. Requiere el ID del libro y el nombre del usuario para fines de control y auditoría.
+func (s *LibraryService) BorrowBook(id string, username string) error {
 	optBook := s.repo.FindByID(domain.BookID(id))
 
-	// 2. Si la caja está vacía, devolvemos un error
 	if optBook.IsAbsent() {
 		return fmt.Errorf("error: libro no encontrado")
 	}
 
-	// 3. Extraemos el libro de la caja
 	book := optBook.MustGet()
 
-	// 4. No se puede prestar algo que ya está prestado
+	// Valido las reglas de negocio fundamentales: el libro debe estar disponible para poder prestarse.
 	if book.Status == "Prestado" {
 		return fmt.Errorf("error: el libro ya se encuentra prestado")
 	}
+	if book.Status == "Vendido" {
+		return fmt.Errorf("error: este libro ya fue vendido")
+	}
 
-	// 5. Usamos tu Setter Funcional para cambiar el estado de forma segura e inmutable
-	updatedBook := book.WithStatus("Prestado")
-
-	// 6. Guardamos el libro actualizado (esto sobreescribe el anterior)
+	// Aplico los setters funcionales para mutar el estado de forma inmutable y registro al usuario responsable.
+	updatedBook := book.WithStatus("Prestado").WithBorrowedBy(username)
 	s.repo.Save(updatedBook)
 
 	return nil
 }
 
-// Busca el libro prestado y lo vuelve a marcar como disponible
-func (s *LibraryService) ReturnBook(id string) error {
+// Proceso la devolución del libro, integrando una capa de control de acceso basada en el usuario actual.
+func (s *LibraryService) ReturnBook(id string, username string) error {
 	optBook := s.repo.FindByID(domain.BookID(id))
 
 	if optBook.IsAbsent() {
@@ -121,7 +112,39 @@ func (s *LibraryService) ReturnBook(id string) error {
 		return fmt.Errorf("error: el libro ya está en la biblioteca")
 	}
 
-	updatedBook := book.WithStatus("Disponible")
+	// Regla de seguridad y privacidad: Valido que únicamente el usuario que originó el préstamo,
+	// o el administrador central del sistema, tengan autorización para registrar la devolución.
+	if book.BorrowedBy != username && username != "jorge" {
+		return fmt.Errorf("solo el usuario que lo alquiló (%s) puede devolverlo", book.BorrowedBy)
+	}
+
+	// Libero el libro y limpio el registro del usuario.
+	updatedBook := book.WithStatus("Disponible").WithBorrowedBy("")
+	s.repo.Save(updatedBook)
+
+	return nil
+}
+
+// Implemento la transacción de compra, la cual opera como un estado final dentro del ciclo de vida del libro.
+func (s *LibraryService) BuyBook(id string) error {
+	optBook := s.repo.FindByID(domain.BookID(id))
+
+	if optBook.IsAbsent() {
+		return fmt.Errorf("error: libro no encontrado")
+	}
+
+	book := optBook.MustGet()
+
+	// Valido restricciones de negocio cruzadas para evitar corromper el inventario.
+	if book.Status == "Vendido" {
+		return fmt.Errorf("error: este libro ya fue vendido")
+	}
+	if book.Status == "Prestado" {
+		return fmt.Errorf("error: no puedes comprar un libro prestado")
+	}
+
+	// Actualizo el estado a vendido de forma inmutable y lo persisto en memoria.
+	updatedBook := book.WithStatus("Vendido")
 	s.repo.Save(updatedBook)
 
 	return nil

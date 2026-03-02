@@ -1,12 +1,13 @@
+// Autonomo 2 Jorge Luis Rojas Robles - 2026
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Libros - Autonomo 2</title>
+    <title>Panel de Libros - Proyecto Final</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #ecf0f1; padding: 30px; }
-        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .container { max-width: 900px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
         h2 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th, td { padding: 12px; border: 1px solid #ddd; text-align: left; }
@@ -19,9 +20,9 @@
 <body>
     <div class="container">
         <a href="/" class="logout">Cerrar Sesión</a>
-        <h2>📚 Mi Biblioteca - UIDE</h2>
+        <h2>📚 Mi Biblioteca - UIDE (Proyecto Final)</h2>
         
-        <div style="background: #e8f4f8; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+        <div id="seccion-agregar" style="background: #e8f4f8; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
             <h3 style="margin-top: 0; color: #2980b9;">➕ Agregar Nuevo Libro</h3>
             <form id="form-agregar-libro" style="display: flex; gap: 10px;">
                 <input type="text" id="nuevo-titulo" placeholder="Título del libro" required style="flex: 1; padding: 10px; border: 1px solid #bdc3c7; border-radius: 4px;">
@@ -37,65 +38,116 @@
                     <th>Título</th>
                     <th>Autor</th>
                     <th>Estado</th>
+                    <th>Acciones</th> 
                 </tr>
             </thead>
-            <tbody id="tabla-libros">
-                </tbody>
+            <tbody id="tabla-libros"></tbody>
         </table>
     </div>
 
     <script>
-        // 1. Cargar libros al entrar
+        function getCookie(name) {
+            let value = "; " + document.cookie;
+            let parts = value.split("; " + name + "=");
+            if (parts.length === 2) return parts.pop().split(";").shift();
+        }
+        
+        const userRole = getCookie("role");
+        const currentUser = getCookie("username"); 
+
+        if (userRole === "cliente") {
+            document.getElementById('seccion-agregar').style.display = 'none';
+        }
+
         function cargarLibros() {
-            fetch('/books')
+            fetch('/api/books')
                 .then(response => response.json())
                 .then(data => {
                     const tabla = document.getElementById('tabla-libros');
                     if (!data || data.length === 0) {
-                        tabla.innerHTML = "<tr><td colspan='4' style='text-align:center;'>No hay libros en el sistema.</td></tr>";
+                        tabla.innerHTML = "<tr><td colspan='5' style='text-align:center;'>No hay libros en el sistema.</td></tr>";
                         return;
                     }
-                    tabla.innerHTML = ''; // Limpiamos la tabla
+                    tabla.innerHTML = ''; 
                     data.forEach(book => {
+                        let estadoHtml = '';
+                        if (book.Status === 'Disponible') estadoHtml = `<span style="color: green; font-weight: bold;">Disponible</span>`;
+                        else if (book.Status === 'Prestado') estadoHtml = `<span style="color: red; font-weight: bold;">Prestado</span>`;
+                        else if (book.Status === 'Vendido') estadoHtml = `<span style="color: purple; font-weight: bold;">Vendido</span>`;
+
+                        let botonAccion = '';
+                        if (book.Status === 'Disponible') {
+                            botonAccion += `<button onclick="prestarLibro('${book.ID}')" style="background:#f39c12; color:white; border:none; padding:5px 10px; border-radius:3px; cursor:pointer; margin-right:5px;">Alquilar</button>`;
+                            botonAccion += `<button onclick="comprarLibro('${book.ID}')" style="background:#8e44ad; color:white; border:none; padding:5px 10px; border-radius:3px; cursor:pointer;">Comprar</button>`;
+                        } else if (book.Status === 'Prestado') {
+                            // 🔒 REGLAS DE PRIVACIDAD APLICADAS
+                            if (currentUser === book.BorrowedBy) {
+                                botonAccion += `<button onclick="devolverLibro('${book.ID}')" style="background:#3498db; color:white; border:none; padding:5px 10px; border-radius:3px; cursor:pointer;">Devolver</button>`;
+                            } else if (currentUser === 'jorge') {
+                                botonAccion += `<button onclick="devolverLibro('${book.ID}')" style="background:#3498db; color:white; border:none; padding:5px 10px; border-radius:3px; cursor:pointer; margin-right:5px;">Devolver</button>`;
+                                botonAccion += `<span style="color: #7f8c8d; font-size: 0.9em;">(El libro lo tiene: <b>${book.BorrowedBy}</b>)</span>`;
+                            } else {
+                                botonAccion += `<span style="color: gray; font-style: italic;">No disponible</span>`;
+                            }
+                        } else if (book.Status === 'Vendido') {
+                            botonAccion += `<span style="color: gray; font-style: italic;">Sin acciones</span>`;
+                        }
+
                         tabla.innerHTML += `<tr>
-                            <td>${book.id}</td>
-                            <td>${book.title}</td>
-                            <td>${book.author}</td>
-                            <td>${book.status || 'Disponible'}</td>
+                            <td>${book.ID}</td>
+                            <td>${book.Title}</td>
+                            <td>${book.Author}</td>
+                            <td>${estadoHtml}</td>
+                            <td>${botonAccion}</td>
                         </tr>`;
                     });
                 })
                 .catch(error => console.error('Error cargando libros:', error));
         }
 
-        // Llamamos a la función al abrir la página
         cargarLibros();
 
-        // 2. Lógica del botón Guardar (¡Esta es la que envía el dato!)
         document.getElementById('form-agregar-libro').addEventListener('submit', function(e) {
             e.preventDefault(); 
-            
             const titulo = document.getElementById('nuevo-titulo').value;
             const autor = document.getElementById('nuevo-autor').value;
 
-            fetch('/books/manual', {
+            fetch('/api/books/manual', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ title: titulo, author: autor })
-            })
-            .then(response => {
+            }).then(response => {
                 if (response.ok) {
-                    // Limpiamos las cajas de texto
                     document.getElementById('nuevo-titulo').value = '';
                     document.getElementById('nuevo-autor').value = '';
-                    // Volveamos a cargar la tabla para ver el libro nuevo
                     cargarLibros(); 
-                } else {
-                    alert("Error al guardar el libro");
                 }
-            })
-            .catch(error => console.error('Error de red:', error));
+            });
         });
+
+        function prestarLibro(id) {
+            fetch(`/api/transactions/borrow/${id}`, { method: 'POST' }).then(res => {
+                if(res.ok) cargarLibros(); else alert("Error al alquilar");
+            });
+        }
+
+        function devolverLibro(id) {
+            fetch(`/api/transactions/return/${id}`, { method: 'POST' }).then(async res => {
+                if(res.ok) cargarLibros(); 
+                else {
+                    const errorData = await res.json();
+                    alert(errorData.error);
+                }
+            });
+        }
+
+        function comprarLibro(id) {
+            if(confirm("¿Estás seguro que deseas comprar este libro?")) {
+                fetch(`/api/transactions/buy/${id}`, { method: 'POST' }).then(res => {
+                    if(res.ok) cargarLibros(); else alert("Error al comprar");
+                });
+            }
+        }
     </script>
 </body>
 </html>

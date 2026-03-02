@@ -1,4 +1,4 @@
-// Autonomo 2 Jorge Luis Rojas Robles - 2026
+// Contacto con el Docente Jorge Luis Rojas Robles - 2026
 package service
 
 import (
@@ -8,22 +8,21 @@ import (
 	"github.com/samber/mo"
 )
 
-// =============================================================================
-// 1. MOCK (Simulacro) del Repositorio - TEMA UNIDAD 3: INTERFACES
-// =============================================================================
-// Este struct "finge" ser una base de datos. Sirve para engañar al servicio
-// durante el test y verificar si llama a guardar o no.
+// Implemento un Mock (simulación) del repositorio para aislar las pruebas unitarias.
+// Esto demuestra la utilidad práctica de las Interfaces que estudiamos en la Unidad 3,
+// permitiéndome desacoplar la lógica de negocio de la base de datos real.
 type MockRepository struct {
-	SaveCalls int // Contador de cuántas veces se llamó a Save
+	SaveCalls int // Utilizo este contador para auditar cuántas veces el servicio intenta guardar datos.
 }
 
-// Implementación de la Interfaz domain.BookRepository
+// Cumplo con el contrato de la interfaz domain.BookRepository retornando valores vacíos controlados.
 func (m *MockRepository) FindByID(id domain.BookID) mo.Option[domain.Book] {
 	return mo.None[domain.Book]()
 }
 
+// Sobrescribo el método Save para que funcione como un espía de comportamiento durante mis pruebas.
 func (m *MockRepository) Save(book domain.Book) mo.Result[bool] {
-	m.SaveCalls++ // ¡Espía! Contamos la llamada
+	m.SaveCalls++
 	return mo.Ok(true)
 }
 
@@ -31,38 +30,36 @@ func (m *MockRepository) ListAll() []domain.Book {
 	return []domain.Book{}
 }
 
-// =============================================================================
-// 2. PRUEBA UNITARIA - TEMA SECCIÓN 9 PDF
-// =============================================================================
-
+// Desarrollo esta prueba unitaria para validar la robustez del sistema frente a errores,
+// aplicando los conceptos de Testing correspondientes a la última unidad.
 func TestImportBooks_FiltradoDeErrores(t *testing.T) {
-	// A. PREPARACIÓN (Arrange)
-	// Creamos el mock
-	mockRepo := &MockRepository{}
 
-	// Inyectamos el mock en lugar del repositorio real (Polimorfismo)
+	// Fase de Preparación (Arrange):
+	// Instancio el mock y lo inyecto en el servicio de biblioteca, aprovechando el polimorfismo.
+	mockRepo := &MockRepository{}
 	svc := NewLibraryService(mockRepo)
 
-	// Definimos entradas que SABEMOS que van a fallar (porque no existen los archivos)
+	// Defino un escenario de falla controlada proporcionando rutas de archivos que no existen.
 	rutasInvalidas := []string{
 		"archivo_inexistente_1.epub",
 		"archivo_inexistente_2.epub",
 	}
 
-	// B. EJECUCIÓN (Act)
-	// Ejecutamos la lógica funcional
+	// Fase de Ejecución (Act):
+	// Pongo a prueba la lógica funcional de importación.
 	librosProcesados := svc.ImportBooks(rutasInvalidas)
 
-	// C. ASERCIÓN (Assert)
+	// Fase de Aserción (Assert):
 
-	// 1. Verificamos Robustez: El sistema NO debe explotar (panic) y debe devolver una lista vacía.
-	// Esto confirma que lo.FilterMap descartó los errores de la Vía Roja.
+	// 1. Verifico la robustez del código. El sistema no debe colapsar y debe retornar una lista vacía.
+	// Esto me confirma que la función lo.FilterMap filtró exitosamente los errores de lectura.
 	if len(librosProcesados) != 0 {
-		t.Errorf("Se esperaba 0 libros válidos (todos son errores), pero llegaron %d", len(librosProcesados))
+		t.Errorf("Se esperaba 0 libros válidos debido a errores de lectura, pero se procesaron %d", len(librosProcesados))
 	}
 
-	// 2. Verificamos Comportamiento: No se debió intentar guardar nada en el repo.
+	// 2. Verifico el comportamiento de la persistencia. Al no haber libros válidos procesados,
+	// el servicio no debió interactuar con la base de datos simulada en ningún momento.
 	if mockRepo.SaveCalls != 0 {
-		t.Errorf("El repositorio no debió ser llamado, pero SaveCalls = %d", mockRepo.SaveCalls)
+		t.Errorf("El repositorio no debió registrar llamadas a Save, pero se detectaron %d llamadas", mockRepo.SaveCalls)
 	}
 }
